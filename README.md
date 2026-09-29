@@ -2,7 +2,7 @@
 
 **Revenue, retention and churn analysis of real subscription data. 20M billing transactions and 400M listening events from KKBox, Asia's largest music-streaming service, turned into an MRR bridge, cohort retention, and a churn model that is tested out-of-time.**
 
-**Live site:** _coming with the first KKBox build_ · Static, so it never sleeps and loads instantly.
+**Live site: [subscription-churn-analytics.vercel.app](https://subscription-churn-analytics.vercel.app)** · Static, so it never sleeps and loads instantly.
 
 ---
 
