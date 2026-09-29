@@ -3,7 +3,7 @@
 const compact = new Intl.NumberFormat("en-US", { notation: "compact", maximumFractionDigits: 1 });
 const whole = new Intl.NumberFormat("en-US", { maximumFractionDigits: 0 });
 
-export const ntd = (v: number) => `NT$${compact.format(v)}`;
+export const ntd = (v: number) => `${v < 0 ? "−" : ""}NT$${compact.format(Math.abs(v))}`;
 export const ntdFull = (v: number) => `NT$${whole.format(v)}`;
 export const count = (v: number) => compact.format(v);
 export const countFull = (v: number) => whole.format(v);

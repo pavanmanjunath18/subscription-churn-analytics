@@ -20,10 +20,13 @@ OUT = ROOT / "web" / "data"
 MIN_GROUP = 50
 
 TABLES = {
-    "mrr_bridge": "select * from mrr_bridge_monthly order by month",
+    # Jan 2015 is the first month of data, so every existing member looks "new";
+    # start the series a month later. Pages further restrict flows to 2016+.
+    "mrr_bridge": "select * from mrr_bridge_monthly where month >= date '2015-02-01' order by month",
 
     "cohort_retention": """
-        select * from cohort_retention where cohort_size >= {min_group}
+        -- Jan-Feb 2015 "cohorts" are mostly members who subscribed before the data begins.
+        select * from cohort_retention where cohort_size >= {min_group} and cohort_month >= date '2015-03-01'
         order by cohort_month, months_since_start""",
 
     # Churn rate at renewal decisions, by one driver at a time.
@@ -71,20 +74,21 @@ TABLES = {
     "model_lift": "select * from analysis.model_lift",
     "model_coefficients": "select * from analysis.model_coefficients",
 
-    # Does our churn definition reproduce Kaggle's labels for Feb-2017 expiries?
-    "label_agreement": """
-        with ours as (
-            select msno, arg_max(churned, decision_date) as churned
-            from fct_renewal_decisions
-            where decision_month = date '2017-02-01'
-            group by 1
-        )
-        select count(*) as members,
-               avg((o.churned = l.is_churn)::int) as agreement,
-               avg(l.is_churn::int)               as kaggle_churn_rate,
-               avg(o.churned::int)                as our_churn_rate
-        from ours o join stg_competition_labels l using (msno)
-        where l.label_set = 'train'""",
+    # Scale and data-quality facts quoted on the Method page.
+    "data_quality": """
+        select
+            (select count(*) from stg_transactions)                          as transactions,
+            (select count(distinct msno) from stg_transactions)              as members_with_transactions,
+            (select sum(days_active) from stg_user_logs_monthly)             as listening_days,
+            (select count(*) from int_billing_data_gaps)                     as gap_months,
+            (select count(distinct payment_method_id) from int_billing_data_gaps) as gap_methods,
+            (select avg(has_bridged_gap::int) from int_subscription_spells)  as share_spells_bridged,
+            (select avg(is_plan_days_inferred::int) from stg_transactions)   as share_plan_days_inferred,
+            (select count(*) from fct_renewal_decisions
+              where decision_month between date '2016-01-01' and date '2017-02-01') as renewal_decisions""",
+
+    # Does our churn definition reproduce Kaggle's labelling code (and its labels)?
+    "label_agreement": "select * from audit_label_agreement order by comparison",
 }
 
 
@@ -93,19 +97,21 @@ def main():
     ap.add_argument("--db", default=str(ROOT / "data" / "warehouse.duckdb"))
     ap.add_argument("--source", default="kkbox", choices=["kkbox", "fixture"],
                     help="stamped into meta.json; the site shows a banner for 'fixture'")
+    ap.add_argument("--out", default=str(OUT), help="output folder (the fixture writes elsewhere)")
     ap.add_argument("--min-group", type=int, default=MIN_GROUP,
                     help="smallest group exported (privacy floor; lower only for the fixture)")
     a = ap.parse_args()
-    OUT.mkdir(parents=True, exist_ok=True)
+    out = Path(a.out)
+    out.mkdir(parents=True, exist_ok=True)
     con = duckdb.connect(a.db, read_only=True)
     for name, sql in TABLES.items():
         df = con.execute(sql.format(min_group=a.min_group)).df()
         for col in df.select_dtypes(include=["datetime", "datetimetz"]).columns:
             df[col] = df[col].dt.strftime("%Y-%m-%d")
-        (OUT / f"{name}.json").write_text(df.to_json(orient="records", double_precision=6))
+        (out / f"{name}.json").write_text(df.to_json(orient="records", double_precision=6))
         print(f"{name:<20} {len(df):>6,} rows")
     con.close()
-    (OUT / "meta.json").write_text(json.dumps({
+    (out / "meta.json").write_text(json.dumps({
         "source": a.source,
         "generated_at": datetime.now(timezone.utc).strftime("%Y-%m-%d"),
     }))

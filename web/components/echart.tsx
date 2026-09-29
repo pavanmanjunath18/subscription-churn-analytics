@@ -65,7 +65,7 @@ export function EChart({ build, height, label }: {
     };
   }, [build]);
 
-  return <div ref={el} role="img" aria-label={label} style={{ width: "100%", height }} />;
+  return <div ref={el} role="img" aria-label={label} style={{ width: "100%", minWidth: 0, overflow: "hidden", height }} />;
 }
 
 // ── Shared styling (mark specs: hairline solid grid, recessive axes) ─────────

@@ -1,5 +1,6 @@
 import { PageHeader } from "@/components/ui";
-import { REPO, modelUrl } from "@/lib/data";
+import { REPO, data, modelUrl } from "@/lib/data";
+import { count, pct } from "@/lib/format";
 
 export const metadata = { title: "Method · Subscription Churn Analytics" };
 
@@ -17,6 +18,7 @@ const M = ({ path, children }: { path: string; children: React.ReactNode }) => (
 );
 
 export default function MethodPage() {
+  const q = data.quality;
   return (
     <>
       <PageHeader
@@ -29,8 +31,9 @@ export default function MethodPage() {
             The <a href="https://www.kaggle.com/competitions/kkbox-churn-prediction-challenge" target="_blank" rel="noreferrer">KKBox
             Churn Prediction Challenge</a> (WSDM Cup 2018): real, anonymised records from Asia&apos;s largest
             music-streaming service. Four sources are used: <strong>members</strong> (sign-up channel, city,
-            age), <strong>transactions</strong> (~20M payments, renewals and cancellations, 2015 to March 2017),
-            <strong> daily listening logs</strong> (~400M rows) and Kaggle&apos;s own churn labels, which are used
+            age), <strong>transactions</strong> ({count(q.transactions)} payments, renewals and cancellations from{" "}
+            {count(q.members_with_transactions)} members, 2015 to March 2017), <strong>daily listening logs</strong>{" "}
+            ({count(q.listening_days)} member-days) and Kaggle&apos;s own churn labels, which are used
             only to validate our definition.
           </p>
           <p>
@@ -53,6 +56,30 @@ export default function MethodPage() {
           <p>
             The 30-day grace period is the competition&apos;s own churn definition, and our flag agrees with
             Kaggle&apos;s published labels (see <em>Why members churn</em>).
+          </p>
+        </Block>
+
+        <Block title="Repairing the raw data">
+          <p>
+            <strong>Holes in the billing export.</strong> Some payment methods almost vanish from the transaction
+            log for a month or more, then return at full volume. Method 39, for example, drops from ~76K to ~4K
+            transactions a month in February–June 2016, while its members keep listening at their usual rate.
+            Taken at face value, that reads as mass churn followed by mass reactivation.{" "}
+            <M path="intermediate/int_billing_data_gaps.sql">int_billing_data_gaps</M> flags every
+            payment-method-month below 25% of that method&apos;s typical volume ({q.gap_months} months across{" "}
+            {q.gap_methods} methods). A lapse that overlaps one of these holes, where the member later reappears,
+            is treated as continuous: the renewals were almost certainly made but not exported. This applies to{" "}
+            {pct(q.share_spells_bridged)} of subscription spells. Members who never reappear still count as churned.
+          </p>
+          <p>
+            <strong>Missing plan lengths.</strong> {pct(q.share_plan_days_inferred)} of transactions record a plan
+            length of zero, yet 99% of them are paid and expire about 31 days later: ordinary monthly payments with
+            the field missing. The length is inferred from the expiry date instead of dropping them.
+          </p>
+          <p>
+            <strong>Start of the data.</strong> The log begins in January 2015, so everyone already subscribed then
+            looks new. 2015 is used as warm-up: revenue flows and churn rates are reported from January 2016, and
+            cohorts from March 2015.
           </p>
         </Block>
 
@@ -103,7 +130,8 @@ export default function MethodPage() {
             Month-end snapshots miss members whose whole subscription falls inside one calendar month (e.g. a
             single 7-day plan); they are in the renewal-decision analysis but not in MRR. Expansion and
             contraction mostly reflect plan-length and promotional-price changes, not upsell. Listening logs end
-            in February 2017, which bounds the test window. Churn-driver charts show associations, and members
+            in February 2017, which bounds the test window. The billing-gap repair is a judgement call: a few months
+            (e.g. March 2016 at ~7% churn) remain elevated after it, and may still contain export problems. Churn-driver charts show associations, and members
             who choose auto-renew differ from those who don&apos;t in ways the data cannot see.
           </p>
         </Block>

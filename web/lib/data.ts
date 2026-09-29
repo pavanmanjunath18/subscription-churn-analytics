@@ -9,6 +9,7 @@ import lift from "@/data/model_lift.json";
 import coefs from "@/data/model_coefficients.json";
 import labels from "@/data/label_agreement.json";
 import meta from "@/data/meta.json";
+import quality from "@/data/data_quality.json";
 
 export type BridgeRow = {
   month: string;
@@ -66,7 +67,25 @@ export type LiftRow = {
   feature_set: string;
 };
 export type CoefRow = { feature: string; coefficient: number; odds_ratio_per_sd: number; feature_set: string };
-export type LabelRow = { members: number; agreement: number | null; kaggle_churn_rate: number | null; our_churn_rate: number | null };
+export type QualityRow = {
+  transactions: number;
+  members_with_transactions: number;
+  listening_days: number;
+  gap_months: number;
+  gap_methods: number;
+  share_spells_bridged: number;
+  share_plan_days_inferred: number;
+  renewal_decisions: number;
+};
+export type LabelRow = {
+  comparison: string;
+  members: number;
+  agreement: number;
+  churn_rate_first: number;
+  churn_rate_second: number;
+  precision: number | null;
+  recall: number | null;
+};
 
 export const data = {
   bridge: bridge as BridgeRow[],
@@ -76,9 +95,15 @@ export const data = {
   metrics: metrics as MetricRow[],
   lift: lift as LiftRow[],
   coefs: coefs as CoefRow[],
-  labels: (labels as LabelRow[])[0],
+  labels: labels as LabelRow[],
   meta: meta as { source: "kkbox" | "fixture"; generated_at: string },
+  quality: (quality as QualityRow[])[0],
 };
+
+// Revenue flows and churn rates are reported from here: 2015 is warm-up (the
+// data starts Jan 2015, and T12M retention needs a year of history).
+export const ANALYSIS_START = "2016-01-01";
+export const flows = () => data.bridge.filter((r) => r.month >= ANALYSIS_START);
 
 export const REPO = "https://github.com/pavanmanjunath18/subscription-churn-analytics";
 export const modelUrl = (path: string) => `${REPO}/blob/main/transform/models/${path}`;

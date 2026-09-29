@@ -1,58 +1,13 @@
--- One row per paid period at the moment it expires: did the member renew
--- (a later paid period in the same spell) or churn (spell ended)?
--- Features describe only what was knowable before the expiry month.
+-- One row per paid period at expiry (int_renewal_labels) plus what was known
+-- before the decision month: member attributes and listening behaviour.
 -- This is the table the churn model and the risk score are evaluated on.
-with events as (
-    select
-        e.*,
-        -- Is there another paid period later in this spell?
-        max(case when e.is_paid then e.transaction_date end) over (
-            partition by e.msno, e.spell_number
-            order by e.transaction_date
-            rows between 1 following and unbounded following)               as next_paid_date,
-        -- Did the member cancel before this period ran out?
-        bool_or(e.is_cancel) over (
-            partition by e.msno, e.spell_number
-            order by e.transaction_date
-            rows between 1 following and unbounded following)               as cancelled_after,
-        min(e.transaction_date) filter (where e.is_paid) over (partition by e.msno) as first_paid_date,
-        count(*) filter (where e.is_paid) over (
-            partition by e.msno, e.spell_number order by e.transaction_date)  as period_in_spell
-    from {{ ref('int_billing_events_sequenced') }} e
-),
-paid as (
-    select
-        ev.*,
-        s.spell_end,
-        s.is_censored,
-        -- The decision date: when this period (or the spell, if it's the last) runs out.
-        case when ev.next_paid_date is null then s.spell_end else ev.expire_date end as decision_date
-    from events ev
-    join {{ ref('int_subscription_spells') }} s using (msno, spell_number)
-    where ev.is_paid
+with labelled as (
+    select * from {{ ref('int_renewal_labels') }}
 ),
 logs as (
+    -- Only the months any decision can look back to.
     select * from {{ ref('stg_user_logs_monthly') }}
-),
-labelled as (
-    select
-        p.msno,
-        p.spell_number,
-        p.transaction_date                                    as period_start,
-        p.decision_date,
-        date_trunc('month', p.decision_date)::date            as decision_month,
-        (p.next_paid_date is null)                            as churned,
-        p.plan_days,
-        p.monthly_price_ntd,
-        p.discount_pct,
-        p.is_auto_renew,
-        p.payment_method_id,
-        coalesce(p.cancelled_after and p.next_paid_date is null, false) as cancelled_before_expiry,
-        date_diff('month', p.first_paid_date, p.decision_date)          as tenure_months,
-        p.spell_number > 1                                    as is_returning_subscriber,
-        p.period_in_spell
-    from paid p
-    where not (p.next_paid_date is null and p.is_censored)   -- outcome unknown
+    where month >= date '{{ var("analysis_start") }}' - interval 4 month
 ),
 prior as (
     -- Average monthly listening over the three months before the last full

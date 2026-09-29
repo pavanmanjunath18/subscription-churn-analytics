@@ -35,7 +35,7 @@ fixture:
 	STAGED_DIR=data/fixture/staged $(PY) scripts/ingest.py user_logs data/fixture/raw/user_logs.csv
 	STAGED_DIR=data/fixture/staged $(DBT) build $(DBTF) --target fixture
 	$(PY) analysis/churn_model.py --db data/fixture/warehouse.duckdb --sample 0
-	$(PY) scripts/export_site_data.py --db data/fixture/warehouse.duckdb --source fixture --min-group 5
+	$(PY) scripts/export_site_data.py --db data/fixture/warehouse.duckdb --source fixture --min-group 5 --out data/fixture/site
 
 clean:
 	rm -rf data/fixture data/warehouse.duckdb transform/target web/out web/.next

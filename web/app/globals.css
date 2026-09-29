@@ -84,6 +84,9 @@ body {
 }
 
 .card {
+  /* Grid/flex children default to min-width:auto, so a chart drawn at a wide
+     size would hold its column open after the window shrinks. */
+  min-width: 0;
   background: var(--surface);
   border: 1px solid var(--ring);
   border-radius: 12px;

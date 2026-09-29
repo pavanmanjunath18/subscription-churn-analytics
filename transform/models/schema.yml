@@ -66,3 +66,14 @@ models:
     columns:
       - name: churned
         data_tests: [not_null]
+
+  - name: audit_kaggle_labeller
+    description: Kaggle's WSDMChurnLabeller.scala re-implemented for the Feb-2017 label set.
+    columns:
+      - name: msno
+        data_tests: [unique, not_null]
+
+  - name: audit_label_agreement
+    description: Agreement between our churn flag, Kaggle's labelling code, and the published v1 labels.
+    data_tests:
+      - labeller_agreement_at_least: { arguments: { threshold: 0.99 } }

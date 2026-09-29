@@ -1,7 +1,7 @@
 import { MovementColumns, TrendLine, Waterfall } from "@/components/charts";
 import { PageHeader, Section, StatTile } from "@/components/ui";
-import { data } from "@/lib/data";
-import { countFull, monthLabel, ntd, ntdFull, pct } from "@/lib/format";
+import { data, flows } from "@/lib/data";
+import { count, countFull, monthLabel, ntd, ntdFull, pct } from "@/lib/format";
 import { avgLogoChurn12, last12, latest, mrrYoY, subsYoY, sum12, yearAgo } from "@/lib/insights";
 
 export default function RevenuePage() {
@@ -16,7 +16,7 @@ export default function RevenuePage() {
         lede={
           <p>
             Monthly recurring revenue for KKBox, a music-streaming service, rebuilt from{" "}
-            {data.meta.source === "kkbox" ? "~20 million" : "raw"} billing transactions. In the twelve months
+            {count(data.quality.transactions)} billing transactions. In the twelve months
             to {monthLabel(latest.month)}, MRR moved <strong>{pct(mrrYoY)}</strong> to{" "}
             <strong>{ntd(latest.ending_mrr_ntd)}</strong>. New and returning members added{" "}
             <strong>{ntd(gains)}</strong> of monthly revenue while <strong>{ntd(losses)}</strong> leaked out,{" "}
@@ -72,15 +72,15 @@ export default function RevenuePage() {
 
         <Section
           title="Revenue movements by month"
-          takeaway={<p>Gains stack above zero, losses below. Expansion and contraction here are mostly members switching plan length or moving on or off a promotional price.</p>}
+          takeaway={<p>Gains stack above zero, losses below, from January 2016. (In 2015 the data is still filling in: every member already subscribed when it begins looks new.) Expansion and contraction are mostly members switching plan length or moving on or off a promotional price.</p>}
           sql="marts/fct_subscriber_months.sql"
           table={{
             columns: ["Month", "New", "Reactivation", "Expansion", "Contraction", "Churned"],
-            rows: data.bridge.map((r) => [monthLabel(r.month), ntdFull(r.new_mrr_ntd), ntdFull(r.reactivation_mrr_ntd),
+            rows: flows().map((r) => [monthLabel(r.month), ntdFull(r.new_mrr_ntd), ntdFull(r.reactivation_mrr_ntd),
               ntdFull(r.expansion_mrr_ntd), ntdFull(r.contraction_mrr_ntd), ntdFull(r.churned_mrr_ntd)]),
           }}
         >
-          <MovementColumns rows={data.bridge} />
+          <MovementColumns rows={flows()} />
         </Section>
 
         <Section

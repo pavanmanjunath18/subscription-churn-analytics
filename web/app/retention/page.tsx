@@ -1,6 +1,6 @@
 import { CohortHeatmap, RetentionLines, TrendLine } from "@/components/charts";
 import { PageHeader, Section, StatTile } from "@/components/ui";
-import { data } from "@/lib/data";
+import { data, flows } from "@/lib/data";
 import { countFull, monthLabel, pct } from "@/lib/format";
 import { avgLogoChurn12, latest, retentionAt } from "@/lib/insights";
 
@@ -57,11 +57,11 @@ export default function RetentionPage() {
           sql="marts/mrr_bridge_monthly.sql"
           table={{
             columns: ["Month", "Paying at start", "Churned", "Churn rate"],
-            rows: data.bridge.filter((r) => r.logo_churn_rate != null).map((r) =>
+            rows: flows().filter((r) => r.logo_churn_rate != null).map((r) =>
               [monthLabel(r.month), countFull(r.beginning_subscribers), countFull(r.churned_subscribers), pct(r.logo_churn_rate, 2)]),
           }}
         >
-          <TrendLine rows={data.bridge.filter((r) => r.logo_churn_rate != null)} field="logo_churn_rate" kind="pct" label="Monthly churn rate" height={240} />
+          <TrendLine rows={flows().filter((r) => r.logo_churn_rate != null)} field="logo_churn_rate" kind="pct" label="Monthly churn rate" height={240} />
         </Section>
 
         <Section

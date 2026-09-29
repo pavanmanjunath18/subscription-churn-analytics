@@ -19,5 +19,5 @@ jobs:
         with: { node-version: 22, cache: npm, cache-dependency-path: web/package-lock.json }
       - run: make setup
       - run: make fixture
-      - name: Build site (committed JSON restored so the fixture export doesn't leak into the check)
-        run: git checkout -- web/data && make site
+      - name: Build site from the committed KKBox aggregates
+        run: make site

@@ -82,28 +82,47 @@ def labels(con, paths):
 
 
 def user_logs(con, paths, part):
+    """Two passes, so memory stays flat on a 16 GB laptop:
+    1. stream raw daily rows into Parquet partitioned by month (no aggregation);
+    2. collapse one month at a time to member-months (~1M groups each).
+    A single GROUP BY over the whole ~400M-row log runs out of memory, and a
+    pipe from 7zz can only be read once, so pass 1 is what makes pass 2 safe.
+    """
+    import shutil
+
     out = STAGED / "user_logs_monthly"
     out.mkdir(parents=True, exist_ok=True)
+    for old in out.glob(f"{part}*.parquet"):  # a rerun must replace, not add to, earlier output
+        old.unlink()
+    tmp = ROOT / "data" / "tmp" / f"user_logs_{part}"
+    shutil.rmtree(tmp, ignore_errors=True)
     src = (f"read_csv('{paths[0]}', header = true, columns = {{"
            "'msno': 'VARCHAR', 'date': 'INTEGER', 'num_25': 'INTEGER', 'num_50': 'INTEGER',"
            "'num_75': 'INTEGER', 'num_985': 'INTEGER', 'num_100': 'INTEGER',"
            "'num_unq': 'INTEGER', 'total_secs': 'DOUBLE'})")
     con.execute(f"""
-        COPY (
-            SELECT msno,
-                   make_date(date // 10000, (date // 100) % 100, 1) AS month,
-                   COUNT(*)                                  AS days_active,
-                   SUM(num_25 + num_50 + num_75 + num_985 + num_100) AS songs_played,
-                   SUM(num_100)                              AS songs_completed,
-                   SUM(num_25)                               AS songs_skipped_early,
-                   SUM(num_unq)                              AS unique_songs,
-                   -- total_secs has a handful of absurd negative/huge values
-                   SUM(LEAST(GREATEST(total_secs, 0), 86400)) / 3600.0 AS hours_listened
-            FROM {src}
-            GROUP BY 1, 2
-        ) TO '{out}/{part}.parquet' (FORMAT parquet)
+        COPY (SELECT *, date // 100 AS ym FROM {src})
+        TO '{tmp}' (FORMAT parquet, PARTITION_BY (ym))
     """)
-
+    for d in sorted(tmp.glob("ym=*")):
+        ym = int(d.name.split("=")[1])
+        con.execute(f"""
+            COPY (
+                SELECT msno,
+                       make_date({ym // 100}, {ym % 100}, 1)        AS month,
+                       COUNT(*)                                  AS days_active,
+                       SUM(num_25 + num_50 + num_75 + num_985 + num_100) AS songs_played,
+                       SUM(num_100)                              AS songs_completed,
+                       SUM(num_25)                               AS songs_skipped_early,
+                       SUM(num_unq)                              AS unique_songs,
+                       -- total_secs has a handful of absurd negative/huge values
+                       SUM(LEAST(GREATEST(total_secs, 0), 86400)) / 3600.0 AS hours_listened
+                FROM read_parquet('{d}/*.parquet')
+                GROUP BY 1, 2
+            ) TO '{out}/{part}_{ym}.parquet' (FORMAT parquet)
+        """)
+        print(f"   {part} {ym}")
+    shutil.rmtree(tmp)
 
 if __name__ == "__main__":
     ap = argparse.ArgumentParser()

@@ -39,6 +39,8 @@ export default function ChurnPage() {
   const autoOff = driversBy("Auto-renew").find((d) => d.bucket === "off");
   const autoRatio = autoOn && autoOff && autoOn.churn_rate > 0 ? autoOff.churn_rate / autoOn.churn_rate : null;
   const L = data.labels;
+  const ours = L.find((r) => r.comparison.startsWith("Our pipeline vs Kaggle labelling code") && r.members > 0);
+  const v1 = L.find((r) => r.comparison.startsWith("Published v1 labels") && r.members > 0);
 
   return (
     <>
@@ -100,20 +102,33 @@ export default function ChurnPage() {
         ))}
       </div>
 
-      {L?.members > 0 && L.agreement != null && (
+      {ours && (
         <div className="mt-8">
           <Section
-            title="Does our churn definition match Kaggle's?"
+            title="Checking the churn definition against Kaggle's own code"
             takeaway={
-              <p>
-                For the {countFull(L.members)} members whose membership expired in February 2017, our
-                pipeline&apos;s churn flag agrees with the competition&apos;s official label for{" "}
-                <strong>{pct(L.agreement)}</strong> of them (our churn rate {pct(L.our_churn_rate)}, theirs{" "}
-                {pct(L.kaggle_churn_rate)}). This checks that the definition was rebuilt from raw transactions
-                correctly, not assumed.
-              </p>
+              <>
+                <p>
+                  The competition ships the script that produced its labels. Re-implemented in SQL and run on the
+                  same transactions, it agrees with this pipeline&apos;s churn flag for{" "}
+                  <strong>{pct(ours.agreement)}</strong> of the {countFull(ours.members)} members whose membership
+                  expired in February 2017. A dbt test fails the build if that drops below 99%.
+                </p>
+                {v1 && (
+                  <p>
+                    The labels Kaggle actually published agree with that same script only {pct(v1.agreement)} of the
+                    time, and show a higher churn rate ({pct(v1.churn_rate_first)} against {pct(v1.churn_rate_second)}).
+                    Scoring this pipeline against the published file would have understated it, so the audit uses
+                    the code.
+                  </p>
+                )}
+              </>
             }
-            sql="marts/fct_renewal_decisions.sql"
+            sql="audit/audit_label_agreement.sql"
+            table={{
+              columns: ["Comparison", "Members", "Agreement", "Churn rate (first)", "Churn rate (second)"],
+              rows: L.map((r) => [r.comparison, countFull(r.members), pct(r.agreement), pct(r.churn_rate_first, 2), pct(r.churn_rate_second, 2)]),
+            }}
           >
             <></>
           </Section>

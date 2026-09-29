@@ -30,13 +30,18 @@ export function driversBy(name: string): DriverRow[] {
   return data.drivers.filter((d) => d.driver === name);
 }
 
-/** Highest vs lowest churn bucket within one driver. */
+/**
+ * The riskiest bucket of a driver versus its largest bucket (the typical
+ * member). Comparing the two extremes instead produces absurd multiples
+ * from small groups.
+ */
 export function spread(name: string) {
   const rows = driversBy(name);
   if (rows.length < 2) return null;
   const hi = rows.reduce((a, b) => (b.churn_rate > a.churn_rate ? b : a));
-  const lo = rows.reduce((a, b) => (b.churn_rate < a.churn_rate ? b : a));
-  return { hi, lo, ratio: lo.churn_rate > 0 ? hi.churn_rate / lo.churn_rate : null };
+  let ref = rows.reduce((a, b) => (b.decisions > a.decisions ? b : a));
+  if (ref === hi) ref = rows.reduce((a, b) => (b.churn_rate < a.churn_rate ? b : a));
+  return { hi, lo: ref, ratio: ref.churn_rate > 0 ? hi.churn_rate / ref.churn_rate : null };
 }
 
 export const label = (bucket: string) => bucket.replace(/^\d: /, "");

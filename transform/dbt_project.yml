@@ -22,6 +22,9 @@ vars:
   # a single stray future-dated row would otherwise un-censor every open spell.
   data_end_date: "2017-03-31"
   first_month: "2015-01-01"
+  # Reporting / modelling window. 2015 is warm-up: the data starts Jan 2015, so
+  # members already subscribed then look "new", and T12M retention needs a year of history.
+  analysis_start: "2016-01-01"
 
 models:
   subscription_churn:
@@ -30,4 +33,6 @@ models:
     intermediate:
       +materialized: table
     marts:
+      +materialized: table
+    audit:
       +materialized: table

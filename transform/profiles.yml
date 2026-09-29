@@ -7,6 +7,7 @@ subscription_churn:
       threads: 4
       settings:
         preserve_insertion_order: false
+        memory_limit: "10GB"   # leave headroom on a 16 GB laptop; DuckDB spills beyond this
     fixture:
       type: duckdb
       path: data/fixture/warehouse.duckdb

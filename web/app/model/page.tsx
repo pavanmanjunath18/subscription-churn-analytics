@@ -29,6 +29,7 @@ function featureLabel(raw: string) {
   if (f.startsWith("missingindicator_")) return `${map[f.replace("missingindicator_", "")] ?? f} missing`;
   if (f.startsWith("plan_bucket_")) return `Plan: ${f.replace("plan_bucket_", "")}`;
   if (f.startsWith("payment_method_bucket_")) return `Payment method ${f.replace("payment_method_bucket_", "")}`;
+  if (f === "registered_via_nan") return "Sign-up channel unknown";
   if (f.startsWith("registered_via_")) return `Signed up via channel ${f.replace("registered_via_", "")}`;
   return f;
 }
@@ -146,6 +147,13 @@ export default function ModelPage() {
         </div>
 
         <div className="prose-lite text-[14px]">
+          <p>
+            <strong>Caveats.</strong> Every model scores higher on the test months than on validation
+            ({best.test_auc.toFixed(3)} against {best.validation_auc.toFixed(3)} for the best one). Q4 2016
+            includes December&apos;s churn spike, which is harder to predict, so treat the validation figure as
+            the conservative estimate. Payment-method IDs are anonymised in the source data, so the model can
+            say that some channels carry far more risk than others, but not which real-world channels they are.
+          </p>
           <p>
             Code: <a href={`${REPO}/blob/main/analysis/churn_model.py`} target="_blank" rel="noreferrer">analysis/churn_model.py</a>.
             Features come from <code>fct_renewal_decisions</code> and describe only what was known before the

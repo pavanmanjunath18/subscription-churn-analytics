@@ -23,14 +23,17 @@ with m as (
     group by 1
 ),
 t12m as (
+    -- LEFT join: members who churned and never came back have no row a year
+    -- later and must count as zero. (An inner join measures only survivors.)
     select
-        cur.month,
-        sum(cur.mrr_ntd) / sum(base.mrr_ntd)                              as nrr_t12m,
-        sum(least(cur.mrr_ntd, base.mrr_ntd)) / sum(base.mrr_ntd)         as grr_t12m
+        (base.month + interval 12 month)::date                                      as month,
+        sum(coalesce(cur.mrr_ntd, 0)) / sum(base.mrr_ntd)                             as nrr_t12m,
+        sum(least(coalesce(cur.mrr_ntd, 0), base.mrr_ntd)) / sum(base.mrr_ntd)        as grr_t12m
     from {{ ref('fct_subscriber_months') }} base
-    join {{ ref('fct_subscriber_months') }} cur
+    left join {{ ref('fct_subscriber_months') }} cur
       on cur.msno = base.msno and cur.month = base.month + interval 12 month
     where base.mrr_ntd > 0
+      and base.month + interval 12 month <= date '{{ var("last_complete_month") }}'
     group by 1
 )
 select
