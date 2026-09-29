@@ -1,0 +1,13 @@
+subscription_churn:
+  target: dev
+  outputs:
+    dev:
+      type: duckdb
+      path: data/warehouse.duckdb
+      threads: 4
+      settings:
+        preserve_insertion_order: false
+    fixture:
+      type: duckdb
+      path: data/fixture/warehouse.duckdb
+      threads: 4

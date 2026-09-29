@@ -1,0 +1,8 @@
+duckdb>=1.5,<2
+dbt-core>=1.12,<1.13
+dbt-duckdb>=1.11,<1.12
+pandas>=2.2,<4
+pyarrow>=18
+numpy>=2
+scikit-learn>=1.6,<2
+kaggle>=1.7

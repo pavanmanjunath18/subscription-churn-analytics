@@ -1,0 +1,33 @@
+name: subscription_churn
+version: "1.0.0"
+profile: subscription_churn
+config-version: 2
+
+model-paths: ["models"]
+macro-paths: ["macros"]
+test-paths: ["tests"]
+
+vars:
+  # Folder of typed Parquet written by scripts/ingest.py (relative to the repo root,
+  # which is where `make` runs dbt from).
+  staged_dir: "{{ env_var('STAGED_DIR', 'data/staged') }}"
+  # A lapse shorter than this is a late renewal, not churn. Matches the KKBox
+  # competition's definition: churn = no new paid subscription within 30 days
+  # of the current membership expiring.
+  churn_grace_days: 30
+  # Last month whose churn outcome is fully observable: transactions run to
+  # 2017-03-31, so a month-end must be >= 30 days before that.
+  last_complete_month: "2017-02-01"
+  # Last date the transaction log covers. Explicit rather than max(date):
+  # a single stray future-dated row would otherwise un-censor every open spell.
+  data_end_date: "2017-03-31"
+  first_month: "2015-01-01"
+
+models:
+  subscription_churn:
+    staging:
+      +materialized: view
+    intermediate:
+      +materialized: table
+    marts:
+      +materialized: table

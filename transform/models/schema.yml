@@ -1,0 +1,68 @@
+version: 2
+
+models:
+  - name: int_billing_events
+    description: Paid periods and cancellations, one per member per day.
+    data_tests:
+      - dbt_utils_unique_combination: { arguments: { columns: [msno, transaction_date] } }
+
+  - name: int_subscription_spells
+    description: Continuous subscription spells (lapses <= 30 days are bridged).
+    data_tests:
+      - dbt_utils_unique_combination: { arguments: { columns: [msno, spell_number] } }
+    columns:
+      - name: spell_end
+        data_tests: [not_null]
+
+  - name: int_paying_months
+    description: Member-months where a spell covers the month end.
+    data_tests:
+      - dbt_utils_unique_combination: { arguments: { columns: [msno, month] } }
+    columns:
+      - name: mrr_ntd
+        data_tests:
+          - not_null
+          - positive
+
+  - name: fct_subscriber_months
+    description: Member-month revenue movements (new, expansion, contraction, churned, reactivation, retained).
+    data_tests:
+      - dbt_utils_unique_combination: { arguments: { columns: [msno, month] } }
+    columns:
+      - name: movement
+        data_tests:
+          - not_null
+          - accepted_values:
+              arguments:
+                values: [new, expansion, contraction, churned, reactivation, retained]
+
+  - name: mrr_bridge_monthly
+    description: Monthly MRR bridge with monthly and trailing-12-month retention.
+    data_tests:
+      - bridge_reconciles
+    columns:
+      - name: month
+        data_tests: [unique, not_null]
+      - name: grr_t12m
+        data_tests:
+          - between: { arguments: { low: 0, high: 1 } }
+      - name: logo_churn_rate
+        data_tests:
+          - between: { arguments: { low: 0, high: 1 } }
+
+  - name: cohort_retention
+    description: Logo and revenue retention by first-paid-month cohort.
+    data_tests:
+      - dbt_utils_unique_combination: { arguments: { columns: [cohort_month, months_since_start] } }
+    columns:
+      - name: logo_retention
+        data_tests:
+          - between: { arguments: { low: 0, high: 1 } }
+
+  - name: fct_renewal_decisions
+    description: One row per paid period at expiry; churned = no paid renewal within 30 days.
+    data_tests:
+      - dbt_utils_unique_combination: { arguments: { columns: [msno, period_start] } }
+    columns:
+      - name: churned
+        data_tests: [not_null]
